@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP-32 Home Monitoring System</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f0f2f5; }
+    header { background: white; padding: 12px 24px; border-bottom: 1px solid #ddd; font-weight: bold; }
+    .container { max-width: 900px; margin: 32px auto; padding: 0 20px; }
+    h1 { font-size: 28px; margin-bottom: 4px; }
+    .subtitle { color: #555; margin-bottom: 16px; }
+    .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .kelompok { background: #eef0f8; border: 1px solid #ccd; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; }
+    .kelompok summary { font-weight: bold; cursor: pointer; }
+    .kelompok ul { margin-top: 10px; padding-left: 20px; }
+    .kelompok li { margin-bottom: 8px; }
+    .kelompok li span { display: block; color: #555; font-size: 13px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    label { font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px; }
+    input[type=text] { width: 100%; padding: 6px 10px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; font-family: monospace; font-size: 13px; }
+    .topic-box { background: #f5f5f5; border: 1px solid #bbb; border-radius: 4px; padding: 6px 10px; font-family: monospace; font-size: 12px; color: #333; margin-top: 4px; }
+    .status-row { margin-top: 12px; display: flex; align-items: center; gap: 12px; }
+    .status-text { font-size: 14px; }
+    .status-text.connected { color: green; }
+    .status-text.disconnected { color: #888; }
+    button { padding: 7px 16px; border: 1px solid #aaa; border-radius: 4px; background: white; cursor: pointer; font-size: 13px; }
+    button:hover { background: #eee; }
+    h2 { font-size: 22px; margin-bottom: 4px; }
+    .waiting { color: #888; font-size: 14px; }
+    .device-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .device-header { font-size: 17px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 16px; }
+    .device-body { display: flex; gap: 24px; align-items: flex-start; }
+    .device-img { text-align: center; font-size: 12px; color: #555; }
+    .device-img img { width: 100px; display: block; margin-bottom: 4px; }
+    .sensor-table { flex: 1; }
+    .sensor-labels { display: flex; gap: 16px; margin-bottom: 8px; }
+    .sensor-label { background: #e8e8e8; border-radius: 4px; padding: 3px 12px; font-size: 13px; }
+    .sensor-values { display: flex; gap: 16px; }
+    .sensor-value { font-size: 20px; min-width: 80px; padding-left: 12px; }
+    .log-section { margin-top: 16px; }
+    .log-section summary { cursor: pointer; font-size: 14px; margin-bottom: 8px; }
+    .log-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    .log-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid #ddd; font-weight: bold; }
+    .log-table td { padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .save-btn { float: right; margin-bottom: 8px; }
+    .command-section { margin-top: 16px; border-top: 1px solid #eee; padding-top: 16px; }
+    .command-section h4 { text-align: center; margin-bottom: 12px; font-size: 15px; }
+    .command-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 14px; }
+    .command-row label { font-weight: normal; flex: 1; margin: 0; }
+    .command-row input[type=checkbox] { width: 16px; height: 16px; }
+    .command-row input[type=text] { width: 60%; background: white; }
+    .send-btn { display: block; margin: 12px auto 0; padding: 6px 24px; }
+  </style>
+</head>
+<body>
+
+<header>Finpro Sisben Kelompok 8</header>
+
+<div class="container">
+  <h1>ESP-32 Based Home Monitoring System</h1>
+  <p class="subtitle">Finpro Sistem Embedded 1-03</p>
+
+  <details class="kelompok" open>
+    <summary>▼ Kelompok 08</summary>
+    <ul>
+      <li>Adrian Idham Alfarizi <span>2306156750</span></li>
+      <li>Kevin Imanuel Hutagaol <span>2306156763</span></li>
+      <li>Rafi Naryama Dana <span>2306156864</span></li>
+    </ul>
+  </details>
+
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <label>Client ID:</label>
+        <input type="text" id="clientId" value="esp32-home-03">
+        <div style="margin-top:10px">
+          <label>Base Topic:</label>
+          <input type="text" id="baseTopic" value="finpro-sisben-kel-8">
+        </div>
+      </div>
+      <div id="topicInfo" style="display:none">
+        <div style="margin-bottom:8px">
+          <label>Sub-topic</label>
+          <div class="topic-box" id="subTopicDisplay"></div>
+        </div>
+        <div>
+          <label>Pub-topic</label>
+          <div class="topic-box" id="pubTopicDisplay"></div>
+        </div>
+      </div>
+    </div>
+    <div class="status-row">
+      <span class="status-text disconnected" id="statusText">Status: Disconnected</span>
+      <button id="connectBtn" onclick="toggleConnect()">Connect ▶</button>
+    </div>
+  </div>
+
+  <h2>Monitored Devices</h2>
+  <div id="deviceList">
+    <p class="waiting">Waiting for data from devices...</p>
+  </div>
+</div>
+
+<script>
+  let mqttClient = null;
+  let isConnected = false;
+  let devices = {};
+  let dataLog = [];
+
+  function toggleConnect() {
+    if (isConnected) {
+      mqttClient.end();
+      setDisconnected();
+    } else {
+      connectMQTT();
+    }
+  }
+
+  function connectMQTT() {
+    const clientId = document.getElementById('clientId').value;
+    const baseTopic = document.getElementById('baseTopic').value;
+    const subTopic = baseTopic + '/data-from-esp';
+    const pubTopic = baseTopic + '/data-to-esp';
+
+    document.getElementById('subTopicDisplay').textContent = subTopic;
+    document.getElementById('pubTopicDisplay').textContent = pubTopic;
+    document.getElementById('topicInfo').style.display = 'block';
+    document.getElementById('statusText').textContent = 'Status: Connecting...';
+
+    mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+      clientId: clientId + '-' + Math.random().toString(16).slice(2),
+      username: 'kevin-imanuel-esp32-01',
+      password: 'FINPROSISBEN8',
+      clean: true
+    });
+
+    mqttClient.on('connect', () => {
+      isConnected = true;
+      mqttClient.subscribe(subTopic);
+      document.getElementById('statusText').textContent = 'Status: Connected';
+      document.getElementById('statusText').className = 'status-text connected';
+      document.getElementById('connectBtn').textContent = 'Disconnect ⊙';
+    });
+
+    mqttClient.on('message', (topic, message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        handleData(data);
+      } catch(e) {}
+    });
+
+    mqttClient.on('error', () => setDisconnected());
+    mqttClient.on('close', () => setDisconnected());
+  }
+
+  function setDisconnected() {
+    isConnected = false;
+    document.getElementById('statusText').textContent = 'Status: Disconnected';
+    document.getElementById('statusText').className = 'status-text disconnected';
+    document.getElementById('connectBtn').textContent = 'Connect ▶';
+    document.getElementById('topicInfo').style.display = 'none';
+  }
+
+  function handleData(data) {
+    const name = data.name || 'Unknown';
+    const location = data.location || '-';
+    const key = name + '-' + location;
+
+    if (!devices[key]) devices[key] = { name, location, latest: {} };
+
+    const entry = { timestamp: new Date().toLocaleString('id-ID'), data: data.data };
+    dataLog.unshift(entry);
+    if (dataLog.length > 50) dataLog.pop();
+
+    data.data.forEach(item => {
+      devices[key].latest[item.dataName] = item.value + (item.unit || '');
+    });
+
+    renderDevices();
+  }
+
+  function renderDevices() {
+    const list = document.getElementById('deviceList');
+    if (Object.keys(devices).length === 0) {
+      list.innerHTML = '<p class="waiting">Waiting for data from devices...</p>';
+      return;
+    }
+
+    let html = '';
+    for (const key in devices) {
+      const d = devices[key];
+      const latest = d.latest;
+      const logEntries = dataLog.slice(0, 20);
+
+      html += `
+      <div class="device-card">
+        <div class="device-header">${d.name} - ${d.location}</div>
+        <div class="device-body">
+          <div class="device-img">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/ESP32_Espressif_ESP-WROOM-32_Dev_Board.jpg/220px-ESP32_Espressif_ESP-WROOM-32_Dev_Board.jpg" alt="ESP32">
+            <div>ESP 32</div>
+            <div>Location: ${d.location}</div>
+          </div>
+          <div class="sensor-table">
+            <div class="sensor-labels">
+              <span class="sensor-label">Humidity</span>
+              <span class="sensor-label">Temperature</span>
+              <span class="sensor-label">Light</span>
+            </div>
+            <div class="sensor-values">
+              <span class="sensor-value">${latest['Humidity'] || '-'}</span>
+              <span class="sensor-value">${latest['Temperature'] || '-'}</span>
+              <span class="sensor-value">${latest['Light'] || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        <details class="log-section">
+          <summary>▶ View Data Log (${logEntries.length} entries)</summary>
+          <button class="save-btn" onclick="saveCSV()">Save as CSV</button>
+          <table class="log-table">
+            <tr><th>Timestamp</th><th>Data</th></tr>
+            ${logEntries.map(e => `
+              <tr>
+                <td>${e.timestamp}</td>
+                <td>${e.data.map(d => d.dataName + ': ' + d.value + (d.unit||'')).join('<br>')}</td>
+              </tr>
+            `).join('')}
+          </table>
+        </details>
+
+        <div class="command-section">
+          <h4>Send Command</h4>
+          <div class="command-row">
+            <label>Lamp On</label>
+            <input type="checkbox" id="lampCheck">
+          </div>
+          <div class="command-row">
+            <label>Curtain Open</label>
+            <input type="checkbox" id="curtainCheck">
+          </div>
+          <div class="command-row">
+            <label>Message</label>
+            <input type="text" id="msgInput" placeholder="Enter message...">
+          </div>
+          <button class="send-btn" onclick="sendCommand()">Send</button>
+        </div>
+      </div>`;
+    }
+    list.innerHTML = html;
+  }
+
+  function sendCommand() {
+    if (!isConnected) { alert('Belum terhubung ke MQTT'); return; }
+    const baseTopic = document.getElementById('baseTopic').value;
+    const payload = {
+      is_lamp_on: document.getElementById('lampCheck').checked,
+      is_curtain_open: document.getElementById('curtainCheck').checked,
+      message: document.getElementById('msgInput').value
+    };
+    mqttClient.publish(baseTopic + '/data-to-esp', JSON.stringify(payload));
+    alert('Perintah terkirim!');
+  }
+
+  function saveCSV() {
+    let csv = 'Timestamp,Humidity,Temperature,Light\n';
+    dataLog.forEach(e => {
+      const h = e.data.find(d => d.dataName === 'Humidity');
+      const t = e.data.find(d => d.dataName === 'Temperature');
+      const l = e.data.find(d => d.dataName === 'Light');
+      csv += `${e.timestamp},${h?h.value:''},${t?t.value:''},${l?l.value:''}\n`;
+    });
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'data-log.csv';
+    a.click();
+  }
+</script>
+</body>
+</html>
